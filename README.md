@@ -1,2 +1,8 @@
 # games
-my game
+my python game
+
+## Run
+
+```bash
+python game.py
+```

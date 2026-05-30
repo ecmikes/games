@@ -9,3 +9,4 @@
 # - random (built into Python, no install needed)
 # - tkinter (usually included with Python on Windows/macOS)
 #   If tkinter is missing on Linux, install: sudo apt-get install python3-tk
+# This script is tested in win 10 and win 11 desktop machine

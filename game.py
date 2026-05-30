@@ -10,11 +10,15 @@ def main() -> None:
     while True:
         guess_text = input("Enter your guess: ").strip()
 
-        if not guess_text.isdigit():
+        try:
+            guess = int(guess_text)
+        except ValueError:
             print("Please enter a whole number.")
             continue
 
-        guess = int(guess_text)
+        if not 1 <= guess <= 10:
+            print("Please guess a number from 1 to 10.")
+            continue
 
         if guess < secret:
             print("Too low. Try again.")

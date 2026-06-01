@@ -16,7 +16,7 @@ import tkinter.font as tkfont
 WINDOW_SIZE = 400
 CELL = 20
 GRID_SIZE = WINDOW_SIZE // CELL
-HUD_HEIGHT = 64
+HUD_HEIGHT = 92
 CANVAS_HEIGHT = WINDOW_SIZE + HUD_HEIGHT
 
 SPEED_OPTIONS = {
@@ -44,13 +44,24 @@ FOOD_STYLES = [
 TEXT_COLOR = "#222"
 SUBTLE_TEXT_COLOR = "#555"
 OVERLAY_COLOR = "black"
-HUD_BG_COLOR = "#f5f1e6"
-HUD_BORDER_COLOR = "#d8d1c3"
-HUD_TOP_STRIP_COLOR = "#efe7d8"
-HUD_PATTERN_COLOR = "#e7dece"
+HUD_BG_COLOR = "#f6edd9"
+HUD_BORDER_COLOR = "#c9b893"
+HUD_TOP_STRIP_COLOR = "#c9f07f"
+HUD_PATTERN_COLOR = "#efe2c7"
 PLAYFIELD_BG_COLOR = "#fbfaf7"
 PLAYFIELD_FLASH_COLOR = "#eef9ef"
 GRID_LINE_COLOR = "#ece7de"
+TITLE_SHADOW_COLOR = "#7e2b1d"
+TITLE_COLOR = "#fff3cf"
+TITLE_STROKE_COLOR = "#b23a2f"
+CONTROL_PANEL_BG = "#fbf6e8"
+CONTROL_PANEL_BORDER = "#d8c9ab"
+CARD_BG_STATUS = "#fff5ea"
+CARD_BORDER_STATUS = "#e7b376"
+CARD_BG_SCORE = "#fff6df"
+CARD_BORDER_SCORE = "#e5c36a"
+CARD_BG_SPEED = "#eaf5ff"
+CARD_BORDER_SPEED = "#84b8e4"
 
 START_DIRECTION = "RIGHT"
 START_SNAKE = [(5, 5), (4, 5), (3, 5)]
@@ -71,6 +82,12 @@ class SnakeGame:
 
         self.hud_hint_font = tkfont.Font(family="Arial", size=8)
         self.hud_hint_bold_font = tkfont.Font(family="Arial", size=8, weight="bold")
+        self.title_font = tkfont.Font(family="Arial", size=16, weight="bold")
+        self.subtitle_font = tkfont.Font(family="Arial", size=7, weight="bold")
+        self.card_label_font = tkfont.Font(family="Arial", size=9, weight="bold")
+        self.card_value_font = tkfont.Font(family="Arial", size=14, weight="bold")
+        self.card_value_small_font = tkfont.Font(family="Arial", size=11, weight="bold")
+        self.controls_font = tkfont.Font(family="Arial", size=8, weight="bold")
 
         self.reset_state()
 
@@ -128,10 +145,19 @@ class SnakeGame:
         """Draw all static background elements once; called on startup only."""
         # HUD chrome
         self.canvas.create_rectangle(0, 0, WINDOW_SIZE, HUD_HEIGHT, fill=HUD_BG_COLOR, outline=HUD_BORDER_COLOR, tags="hud_static")
-        self.canvas.create_rectangle(0, 0, WINDOW_SIZE, 20, fill=HUD_TOP_STRIP_COLOR, outline="", tags="hud_static")
-        for x in range(0, WINDOW_SIZE, 14):
+        self.canvas.create_rectangle(0, 0, WINDOW_SIZE, 40, fill=HUD_TOP_STRIP_COLOR, outline="", tags="hud_static")
+        self.canvas.create_rectangle(0, 40, WINDOW_SIZE, HUD_HEIGHT, fill=HUD_BG_COLOR, outline="", tags="hud_static")
+        for x in range(0, WINDOW_SIZE, 16):
             self.canvas.create_line(x, 0, x, HUD_HEIGHT, fill=HUD_PATTERN_COLOR, width=1, tags="hud_static")
+        self.canvas.create_line(0, 40, WINDOW_SIZE, 40, fill=HUD_BORDER_COLOR, width=2, tags="hud_static")
         self.canvas.create_line(0, HUD_HEIGHT, WINDOW_SIZE, HUD_HEIGHT, fill=HUD_BORDER_COLOR, width=2, tags="hud_static")
+
+        # Branded title treatment inspired by arcade-style snake UIs.
+        self.canvas.create_text(14, 8, anchor="nw", text="SNAKE SPRINT", fill=TITLE_SHADOW_COLOR, font=self.title_font, tags="hud_static")
+        self.canvas.create_text(13, 7, anchor="nw", text="SNAKE SPRINT", fill=TITLE_STROKE_COLOR, font=self.title_font, tags="hud_static")
+        self.canvas.create_text(12, 6, anchor="nw", text="SNAKE SPRINT", fill=TITLE_COLOR, font=self.title_font, tags="hud_static")
+        self.canvas.create_text(14, 25, anchor="nw", text="Arcade Mode", fill="#5c6b35", font=self.subtitle_font, tags="hud_static")
+
         # Playfield background — stored so its fill can be updated without recreation
         self._playfield_rect = self.canvas.create_rectangle(0, HUD_HEIGHT, WINDOW_SIZE, CANVAS_HEIGHT, fill=self.playfield_color, outline="", tags="playfield_bg")
         # Grid lines
@@ -140,39 +166,147 @@ class SnakeGame:
             y = HUD_HEIGHT + i * CELL
             self.canvas.create_line(x, HUD_HEIGHT, x, CANVAS_HEIGHT, fill=GRID_LINE_COLOR, width=1, tags="grid_static")
             self.canvas.create_line(0, y, WINDOW_SIZE, y, fill=GRID_LINE_COLOR, width=1, tags="grid_static")
-        # Static title text
-        self.canvas.create_text(10, 8, anchor="nw", text="Snake Sprint", fill=SUBTLE_TEXT_COLOR, font=("Arial", 11, "italic"), tags="hud_static")
+
+    def _create_round_rect(self, x1, y1, x2, y2, radius, fill, outline, width, tags):
+        """Draw a rounded rectangle using polygons and corner circles."""
+        radius = max(2, min(radius, int((x2 - x1) / 2), int((y2 - y1) / 2)))
+        self.canvas.create_polygon(
+            x1 + radius,
+            y1,
+            x2 - radius,
+            y1,
+            x2,
+            y1,
+            x2,
+            y1 + radius,
+            x2,
+            y2 - radius,
+            x2,
+            y2,
+            x2 - radius,
+            y2,
+            x1 + radius,
+            y2,
+            x1,
+            y2,
+            x1,
+            y2 - radius,
+            x1,
+            y1 + radius,
+            x1,
+            y1,
+            smooth=True,
+            fill=fill,
+            outline=outline,
+            width=width,
+            tags=tags,
+        )
 
     def draw_controls_hint(self):
         """Draw controls text and bold the active speed selection."""
-        right_x = WINDOW_SIZE - 10
-        y = 8
+        panel_x1 = WINDOW_SIZE - 172
+        panel_y1 = 3
+        panel_x2 = WINDOW_SIZE - 8
+        panel_y2 = 38
+        self._create_round_rect(
+            panel_x1,
+            panel_y1,
+            panel_x2,
+            panel_y2,
+            radius=10,
+            fill=CONTROL_PANEL_BG,
+            outline=CONTROL_PANEL_BORDER,
+            width=2,
+            tags="hud_text",
+        )
 
-        segments = [
-            ("3:H", "3"),
-            (" ", None),
-            ("2:M", "2"),
-            (" ", None),
-            ("1:E", "1"),
-            (" | ", None),
-            (CONTROL_HINT_PREFIX, None),
-        ]
+        self.canvas.create_text(
+            panel_x1 + 6,
+            panel_y1 + 3,
+            anchor="nw",
+            text="WASD/Arrows | R: Restart",
+            fill="#3f3d38",
+            font=self.hud_hint_font,
+            tags="hud_text",
+        )
 
-        for text, speed_token in segments:
-            font = self.hud_hint_font
-            if speed_token == self.speed_key:
-                font = self.hud_hint_bold_font
-
-            self.canvas.create_text(
-                right_x,
-                y,
-                anchor="ne",
-                text=text,
-                fill=SUBTLE_TEXT_COLOR,
-                font=font,
+        chip_w = 32
+        chip_h = 12
+        chip_gap = 4
+        start_x = panel_x2 - (chip_w * 3 + chip_gap * 2) - 8
+        chip_y = panel_y2 - chip_h - 2
+        labels = [("1:E", "1"), ("2:M", "2"), ("3:H", "3")]
+        for idx, (label, speed_token) in enumerate(labels):
+            x1 = start_x + idx * (chip_w + chip_gap)
+            x2 = x1 + chip_w
+            is_active = speed_token == self.speed_key
+            fill = "#7dc84c" if is_active else "#f4a23f"
+            border = "#4a8f26" if is_active else "#bc6f1f"
+            text_color = "#ffffff" if is_active else "#2d220f"
+            self._create_round_rect(
+                x1,
+                chip_y,
+                x2,
+                chip_y + chip_h,
+                radius=6,
+                fill=fill,
+                outline=border,
+                width=2,
                 tags="hud_text",
             )
-            right_x -= font.measure(text)
+            self.canvas.create_text(
+                (x1 + x2) // 2,
+                chip_y + chip_h // 2,
+                text=label,
+                fill=text_color,
+                font=self.controls_font,
+                tags="hud_text",
+            )
+
+    def _draw_stat_card(
+        self,
+        x,
+        y,
+        width,
+        height,
+        label,
+        value,
+        value_color,
+        panel_color,
+        border_color,
+    ):
+        """Draw one HUD stat card for status, score, or speed."""
+        self._create_round_rect(
+            x,
+            y,
+            x + width,
+            y + height,
+            radius=10,
+            fill=panel_color,
+            outline=border_color,
+            width=2,
+            tags="hud_text",
+        )
+        self.canvas.create_text(
+            x + 10,
+            y + 4,
+            anchor="nw",
+            text=label,
+            fill="#5f574a",
+            font=self.card_label_font,
+            tags="hud_text",
+        )
+
+        value_font = self.card_value_small_font if len(value) > 5 else self.card_value_font
+        self.canvas.create_text(
+            x + width // 2,
+            y + 20,
+            anchor="n",
+            text=value,
+            fill=value_color,
+            font=value_font,
+            tags="hud_text",
+        )
 
     def flash_playfield(self):
         """Trigger a smooth playfield flash when food is eaten."""
@@ -209,32 +343,49 @@ class SnakeGame:
             self.draw_food(fx, fy, food_color, outline_color, highlight_color)
 
         self.draw_controls_hint()
-        self.canvas.create_text(
-            10,
-            34,
-            anchor="nw",
-            text=f"Status: {self.status_text}",
-            fill=TEXT_COLOR,
-            font=("Arial", 12, "bold"),
-            tags="hud_text",
+        status_color = "#1f9a43"
+        if self.game_over_flag and self.status_text.lower() != "you win":
+            status_color = "#cb2b2b"
+        elif self.status_text.lower() == "you win":
+            status_color = "#2a9d56"
+
+        card_y = 50
+        card_h = 40
+        card_w = 124
+        gap = 8
+
+        self._draw_stat_card(
+            6,
+            card_y,
+            card_w,
+            card_h,
+            "STATUS",
+            self.status_text.upper(),
+            status_color,
+            CARD_BG_STATUS,
+            CARD_BORDER_STATUS,
         )
-        self.canvas.create_text(
-            150,
-            34,
-            anchor="nw",
-            text=f"Score: {self.score}",
-            fill=TEXT_COLOR,
-            font=("Arial", 12, "bold"),
-            tags="hud_text",
+        self._draw_stat_card(
+            6 + card_w + gap,
+            card_y,
+            card_w,
+            card_h,
+            "SCORE",
+            str(self.score),
+            "#d1720f",
+            CARD_BG_SCORE,
+            CARD_BORDER_SCORE,
         )
-        self.canvas.create_text(
-            250,
-            34,
-            anchor="nw",
-            text=f"Speed: {self.speed_name}",
-            fill=TEXT_COLOR,
-            font=("Arial", 12, "bold"),
-            tags="hud_text",
+        self._draw_stat_card(
+            6 + (card_w + gap) * 2,
+            card_y,
+            card_w,
+            card_h,
+            "SPEED",
+            self.speed_name.upper(),
+            "#1b68b3",
+            CARD_BG_SPEED,
+            CARD_BORDER_SPEED,
         )
         if self.overlay_message:
             self.show_center_message(self.overlay_message)
